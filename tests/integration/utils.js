@@ -15,7 +15,8 @@ function uniq(list) {
 
 testUtils.isCouchMaster = function () {
   return 'SERVER' in testUtils.params() &&
-    testUtils.params().SERVER === 'couchdb-master';
+    (testUtils.params().SERVER === 'couchdb-master' ||
+    testUtils.params().SERVER === 'couchdb-2.0');
 };
 
 testUtils.isSyncGateway = function () {
