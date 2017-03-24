@@ -2,12 +2,12 @@
 
 if [ "$SERVER" = "couchdb-master" ]; then
   # Install CouchDB Master
-  docker build -t pouchdb/couchdb .
+  docker build -t pouchdb/couchdb docker/couchdb
   docker run -d -p 3001:5984 -e master pouchdb/couchdb
   COUCH_PORT=3001
 elif [ "$SERVER" = "couchdb-2.0" ]; then
   # Install CouchDB Master
-  docker build -t pouchdb/couchdb .
+  docker build -t pouchdb/couchdb docker/couchdb
   docker run -d -p 3002:5984 -e 2.0.0 pouchdb/couchdb
   COUCH_PORT=3002
 else
