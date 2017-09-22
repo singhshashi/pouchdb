@@ -20,6 +20,10 @@ Plugin for CouchDB's authentication system.
 
 Allows decentralized authentication and access control per document, using asymmetric encryption.
 
+#### [PouchDB Collate](https://github.com/pouchdb/pouchdb/tree/master/packages/node_modules/pouchdb-collate)
+
+Collation functions for PouchDB map/reduce. Used by PouchDB map/reduce to maintain consistent [CouchDB collation ordering](https://wiki.apache.org/couchdb/View_collation).
+
 #### [Crypto Pouch](https://github.com/calvinmetcalf/crypto-pouch)
 
 Encrypt a PouchDB/CouchDB database.
@@ -236,6 +240,13 @@ PouchDB-backed Redux.
 #### [pouch-redux-middleware](https://github.com/pgte/pouch-redux-middleware#readme)
 
 Redux middleware to sync a PouchDB database with the Redux state.
+
+### Vue.js
+
+#### [vue-pouch](https://github.com/qurateinc/vue-pouch)
+
+Syncs PouchDB data with Vue.js components using Mango Selectors
+
 
 {% include anchor.html title="Other languages" hash="Other languages" %}
 

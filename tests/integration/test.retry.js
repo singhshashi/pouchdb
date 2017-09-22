@@ -17,13 +17,12 @@ adapters.forEach(function (adapters) {
 
     var dbs = {};
 
-    beforeEach(function (done) {
+    beforeEach(function () {
       dbs.name = testUtils.adapterUrl(adapters[0], 'testdb');
       dbs.remote = testUtils.adapterUrl(adapters[1], 'test_repl_remote');
-      testUtils.cleanup([dbs.name, dbs.remote], done);
     });
 
-    after(function (done) {
+    afterEach(function (done) {
       testUtils.cleanup([dbs.name, dbs.remote], done);
     });
 
@@ -621,6 +620,40 @@ adapters.forEach(function (adapters) {
         return remote.info();
       }).then(function (info) {
         info.doc_count.should.equal(numDocs);
+      });
+    });
+
+    it('6510 no changes live+retry does not call backoff function', function () {
+      var Promise = testUtils.Promise;
+      var db = new PouchDB(dbs.name);
+      var remote = new PouchDB(dbs.remote);
+      var called = false;
+      var replication;
+
+      function replicatePromise(fromDB, toDB) {
+        return new Promise(function (resolve, reject) {
+           replication = fromDB.replicate.to(toDB, {
+            live: true,
+            retry: true,
+            heartbeat: 5,
+            back_off_function: function () {
+              called = true;
+              replication.cancel();
+            }
+          }).on('complete', resolve)
+            .on('error', reject);
+        });
+      }
+
+      setTimeout(function () {
+        if (replication) {
+          replication.cancel();
+        }
+      }, 2000);
+
+      return replicatePromise(remote, db)
+      .then(function () {
+        called.should.equal(false);
       });
     });
 

@@ -25,15 +25,13 @@ adapters.forEach(function (adapter) {
 
     var dbs = {};
 
-    beforeEach(function (done) {
+    beforeEach(function () {
       dbs.name = testUtils.adapterUrl(adapter, 'testdb');
-      testUtils.cleanup([dbs.name], done);
     });
 
-    after(function (done) {
+    afterEach(function (done) {
       testUtils.cleanup([dbs.name], done);
     });
-
 
     var authors = [
       {name: 'Dale Harvey', commits: 253},
@@ -330,6 +328,11 @@ adapters.forEach(function (adapter) {
     });
 
     it('bulk docs update then delete then update', function () {
+      // Not supported in CouchDB 2.x, see COUCHDB-2386
+      if (testUtils.isCouchMaster()) {
+        return;
+      }
+
       var db = new PouchDB(dbs.name);
       var docs= [{_id: '1'}];
       return db.bulkDocs(docs).then(function (res) {
@@ -350,7 +353,33 @@ adapters.forEach(function (adapter) {
       });
     });
 
+    it('bulk_docs delete then undelete', function () {
+      var db = new PouchDB(dbs.name);
+      var doc = {_id: '1'};
+      return db.bulkDocs([doc]).then(function (res) {
+        should.not.exist(res[0].error, 'should not be an error 1');
+        doc._rev = res[0].rev;
+        doc._deleted = true;
+        return db.bulkDocs([doc]);
+      }).then(function (res) {
+        should.not.exist(res[0].error, 'should not be an error 2');
+        // Not supported in CouchDB 2.x, see COUCHDB-2386
+        if (adapter === 'http' && testUtils.isCouchMaster()) {
+          delete doc._rev;
+        } else {
+          doc._rev = res[0].rev;
+        }
+        doc._deleted = false;
+        return db.bulkDocs([doc]);
+      });
+    });
+
     it('bulk_docs delete then update then undelete', function () {
+      // Not supported in CouchDB 2.x, see COUCHDB-2386
+      if (testUtils.isCouchMaster()) {
+        return;
+      }
+
       var db = new PouchDB(dbs.name);
       var doc = {_id: '1'};
       return db.bulkDocs([doc]).then(function (res) {
@@ -971,7 +1000,7 @@ adapters.forEach(function (adapter) {
       var docid = "mydoc";
 
       function uuid() {
-          return testUtils.uuid(32, 16).toLowerCase();
+          return testUtils.rev();
       }
 
       // create a few of rando, good revisions
@@ -1023,9 +1052,6 @@ adapters.forEach(function (adapter) {
       var db = new PouchDB(dbs.name);
 
       // simulate 5000 normal commits with two conflicts at the very end
-      function uuid() {
-        return testUtils.uuid(32, 16).toLowerCase();
-      }
 
       var isSafari = (typeof process === 'undefined' || process.browser) &&
         /Safari/.test(window.navigator.userAgent) &&
@@ -1036,9 +1062,9 @@ adapters.forEach(function (adapter) {
       var uuids = [];
 
       for (var i = 0; i < numRevs - 1; i++) {
-        uuids.push(uuid());
+        uuids.push(testUtils.rev());
       }
-      var conflict1 = 'a' + uuid();
+      var conflict1 = 'a' + testUtils.rev();
 
       var doc1 = {
         _id: 'doc',
@@ -1068,7 +1094,7 @@ adapters.forEach(function (adapter) {
 
       // simulate 5000 normal commits with two conflicts at the very end
       function uuid() {
-        return testUtils.uuid(32, 16).toLowerCase();
+        return testUtils.rev();
       }
 
       var numRevs = 5000;

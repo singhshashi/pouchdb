@@ -16,13 +16,12 @@ adapters.forEach(function (adapters) {
 
     var dbs = {};
 
-    beforeEach(function (done) {
+    beforeEach(function () {
       dbs.name = testUtils.adapterUrl(adapters[0], 'testdb');
       dbs.remote = testUtils.adapterUrl(adapters[1], 'test_repl_remote');
-      testUtils.cleanup([dbs.name, dbs.remote], done);
     });
 
-    after(function (done) {
+    afterEach(function (done) {
       testUtils.cleanup([dbs.name, dbs.remote], done);
     });
 
@@ -820,7 +819,7 @@ adapters.forEach(function (adapters) {
       });
     });
 
-    it('5007 sync 2 databases', function () {
+    it('5007 sync 2 databases', function (done) {
 
       var db = new PouchDB(dbs.name);
 
@@ -833,10 +832,7 @@ adapters.forEach(function (adapters) {
       var numChanges = 0;
       function onChange() {
         if (++numChanges === 2) {
-          changes1.cancel();
-          changes2.cancel();
-          sync1.cancel();
-          sync2.cancel();
+          complete();
         }
       }
 
@@ -845,10 +841,17 @@ adapters.forEach(function (adapters) {
 
       db.post({foo: 'bar'});
 
-      var promises = [changes1, changes2, sync1, sync2];
-      return testUtils.Promise.all(promises).then(function () {
-        return remote2.destroy();
-      });
+      var toCancel = [changes1, changes2, sync1, sync2];
+      function complete() {
+        if (!toCancel.length) {
+          return remote2.destroy().then(function () {
+            done();
+          });
+        }
+        var cancelling = toCancel.shift();
+        cancelling.on('complete', complete);
+        cancelling.cancel();
+      }
     });
 
     it('5782 sync rev-1 conflicts', function () {

@@ -4,12 +4,11 @@ describe('test.http.js', function () {
 
   var dbs = {};
 
-  beforeEach(function (done) {
+  beforeEach(function () {
     dbs.name = testUtils.adapterUrl('http', 'test_http');
-    testUtils.cleanup([dbs.name], done);
   });
 
-  after(function (done) {
+  afterEach(function (done) {
     testUtils.cleanup([dbs.name], done);
   });
 
@@ -228,4 +227,101 @@ describe('test.http.js', function () {
     });
   });
 
+  it('heartbeart cannot be > request timeout', function (done) {
+    var timeout = 500;
+    var heartbeat = 1000;
+    var CHANGES_TIMEOUT_BUFFER = 5000;
+    var db = new PouchDB(dbs.name, {
+      skipSetup: true,
+      ajax: {
+        timeout: timeout
+      }
+    });
+
+    var ajax = db._ajax;
+    var ajaxOpts;
+    db._ajax = function (opts) {
+      if (/changes/.test(opts.url)) {
+        ajaxOpts = opts;
+        changes.cancel();
+      }
+      ajax.apply(this, arguments);
+    };
+
+    var changes = db.changes({
+        heartbeat: heartbeat
+    });
+
+    changes.on('complete', function () {
+      should.exist(ajaxOpts);
+      ajaxOpts.timeout.should.equal(heartbeat + CHANGES_TIMEOUT_BUFFER);
+      ajaxOpts.url.indexOf("heartbeat=" + heartbeat).should.not.equal(-1);
+      db._ajax = ajax;
+      done();
+    });
+
+  });
+
+  it('changes respects seq_interval', function (done) {
+    var docs = [
+      {_id: '0', integer: 0, string: '0'},
+      {_id: '1', integer: 1, string: '1'},
+      {_id: '2', integer: 2, string: '2'}
+    ];
+
+    var db = new PouchDB(dbs.name);
+    var seqCount = 0;
+    var changesCount = 0;
+    db.bulkDocs(docs).then(function () {
+      db.changes({ seq_interval: 4 })
+      .on('change', function (change) {
+        if (change.seq !== null) {
+          seqCount++;
+        }
+        changesCount++;
+      }).on('error', function (err) {
+        done(err);
+      }).on('complete', function (info) {
+        try {
+          changesCount.should.equal(3);
+
+          // we can't know in advance which
+          // order the changes arrive in so sort them
+          // so that nulls appear last
+          info.results.sort(function (a, b) {
+            if (a.seq !== null && b.seq === null) {
+              return -1;
+            }
+
+            if (a.seq === null && b.seq !== null) {
+              return 1;
+            }
+
+            return 0;
+          });
+
+          // first change always contains a seq
+          should.not.equal(info.results[0].seq, null);
+          should.not.equal(info.last_seq, null);
+
+          // CouchDB 1.x should just ignore seq_interval
+          // (added in CouchDB 2.0), but not fail with an error
+          if (testUtils.isCouchMaster()) {
+            // one change (the "first") always contains a seq
+            seqCount.should.equal(1);
+            should.equal(info.results[1].seq, null);
+            should.equal(info.results[2].seq, null);
+          }
+          else {
+            seqCount.should.equal(3);
+          }
+
+          done();
+        }
+        catch (e) {
+          done(e);
+        }
+      });
+    });
+  });
 });

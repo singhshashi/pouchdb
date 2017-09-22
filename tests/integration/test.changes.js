@@ -23,13 +23,12 @@ adapters.forEach(function (adapter) {
       }
     }
 
-    beforeEach(function (done) {
+    beforeEach(function () {
       dbs.name = testUtils.adapterUrl(adapter, 'testdb');
       dbs.remote = testUtils.adapterUrl(adapter, 'test_repl_remote');
-      testUtils.cleanup([dbs.name, dbs.remote], done);
     });
 
-    after(function (done) {
+    afterEach(function (done) {
       testUtils.cleanup([dbs.name, dbs.remote], done);
     });
 
@@ -85,6 +84,61 @@ adapters.forEach(function (adapter) {
           should.exist(err);
           done();
         });
+      });
+    });
+
+    // TODO: https://github.com/pouchdb/pouchdb/issues/6618
+    it.skip('Live changes should clean listener when cancelled', function () {
+      var db = new PouchDB(dbs.name);
+
+      // TODO: The bug was fixed for the 'idb' adapter in
+      // https://github.com/pouchdb/pouchdb/pull/6504, but still happens with
+      // the 'websql' adapter. It needs to be fixed!
+      if (db.adapter === 'websql') {
+        return;
+      }
+
+      return new testUtils.Promise(function (resolve, reject) {
+        // Capture logs
+        var logs = [];
+        var oldLog = console.error;
+        console.error = function () {
+          var args = Array.prototype.slice.call(arguments);
+          logs.push(args);
+          oldLog.apply(console, arguments);
+        };
+
+        // Try to trigger the problem
+        var changes;
+        var i = 0;
+        function renewChangeListener() {
+          changes = db.changes({live: true});
+          if (i++ < 20) {
+            setTimeout(function () {
+              changes.cancel();
+              changes.on('complete', renewChangeListener);
+            }, 0);
+          } else {
+            changes.cancel();
+
+            // Check whether error logs have been output or not
+            changes.on('complete', function () {
+              console.error = oldLog;
+
+              var badLogs = logs.filter(function (args) {
+                return args[0].indexOf(
+                  'possible EventEmitter memory leak detected') !== -1;
+              });
+
+              if (badLogs.length > 0) {
+                reject(new Error(badLogs));
+              } else {
+                resolve();
+              }
+            });
+          }
+        }
+        renewChangeListener();
       });
     });
 
@@ -2678,7 +2732,7 @@ adapters.forEach(function (adapter) {
 
 describe('changes-standalone', function () {
 
-  it('Changes reports errors', function (done) {
+  it.skip('Changes reports errors', function (done) {
     this.timeout(2000);
     var db = new PouchDB('http://infiniterequest.com', { skipSetup: true });
     db.changes({

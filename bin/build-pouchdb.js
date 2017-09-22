@@ -96,13 +96,14 @@ function doRollup(entry, browser, formatsToFiles) {
   }).then(function (bundle) {
     return Promise.all(Object.keys(formatsToFiles).map(function (format) {
       var fileOut = formatsToFiles[format];
-      var code = bundle.generate({format: format}).code;
-      if (DEV_MODE) {
-        var ms = Math.round(process.hrtime(start)[1] / 1000000);
-        console.log('    took ' + ms + ' ms to rollup ' +
-          path.dirname(entry) + '/' + path.basename(entry));
-      }
-      return writeFile(addPath('pouchdb', fileOut), code);
+      return bundle.generate({format: format}).then(function (bundle) {
+        if (DEV_MODE) {
+          var ms = Math.round(process.hrtime(start)[1] / 1000000);
+          console.log('    took ' + ms + ' ms to rollup ' +
+                      path.dirname(entry) + '/' + path.basename(entry));
+        }
+        return writeFile(addPath('pouchdb', fileOut), bundle.code);
+      });
     }));
   });
 }
@@ -192,12 +193,6 @@ function doBuildNode() {
     .then(buildForNode);
 }
 
-function doBuildDev() {
-  return doAll(buildForNode, buildForBrowserify)()
-    .then(doAll(buildForBrowser, buildPluginsForBrowserify, buildPouchDBNext))
-    .then(buildPluginsForBrowser);
-}
-
 function doBuildAll() {
   return rimrafMkdirp('lib', 'dist', 'lib/plugins')
     .then(doAll(buildForNode, buildForBrowserify))
@@ -208,8 +203,6 @@ function doBuildAll() {
 function doBuild() {
   if (process.env.BUILD_NODE) { // rebuild before "npm test"
     return doBuildNode();
-  } else if (DEV_MODE) { // rebuild during "npm run dev"
-    return doBuildDev();
   } else { // normal, full build
     return doBuildAll();
   }

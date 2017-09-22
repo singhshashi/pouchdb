@@ -7,15 +7,13 @@ adapters.forEach(function (adapter) {
 
     var dbs = {};
 
-    beforeEach(function (done) {
+    beforeEach(function () {
       dbs.name = testUtils.adapterUrl(adapter, 'testdb');
-      testUtils.cleanup([dbs.name], done);
     });
 
-    after(function (done) {
+    afterEach(function (done) {
       testUtils.cleanup([dbs.name], done);
     });
-
 
     var origDocs = [
       {_id: '0', a: 1, b: 1},
@@ -1109,6 +1107,16 @@ adapters.forEach(function (adapter) {
           }
         }
       ];
+
+      function findRev(results, rev) {
+        for (var i = 0, l = results.length; i < l; i++) {
+          var r = results[i];
+          if (r.ok && r.ok._rev === rev) {
+            return r;
+          }
+        }
+        return null;
+      }
       return db.bulkDocs(doctree, { new_edits: false })
         .then(function () {
           return db.get('mydoc', {
@@ -1117,8 +1125,9 @@ adapters.forEach(function (adapter) {
           });
         }).then(function (result) {
           result.length.should.equal(2);
-          result[0].ok._rev.should.equal('4-d1');
-          result[1].ok._rev.should.equal('3-c2');
+          // result order is not guaranteed
+          should.exist(findRev(result, '4-d1'));
+          should.exist(findRev(result, '3-c2'));
         });
     });
 

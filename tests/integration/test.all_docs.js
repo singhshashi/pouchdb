@@ -6,15 +6,14 @@ adapters.forEach(function (adapter) {
   describe('test.all_docs.js-' + adapter, function () {
 
     var dbs = {};
-    beforeEach(function (done) {
-      dbs = {name: testUtils.adapterUrl(adapter, 'testdb')};
-      testUtils.cleanup([dbs.name], done);
+
+    beforeEach(function () {
+      dbs.name = testUtils.adapterUrl(adapter, 'testdb');
     });
 
     afterEach(function (done) {
       testUtils.cleanup([dbs.name], done);
     });
-
 
     var origDocs = [
       {_id: '0', a: 1, b: 1},
@@ -146,7 +145,7 @@ adapters.forEach(function (adapter) {
     it('Testing allDocs invalid opts.keys', function () {
       var db = new PouchDB(dbs.name);
       return db.allDocs({keys: 1234}).then(function () {
-        throw 'should not be here';
+        throw new Error('should not be here');
       }).catch(function (err) {
         should.exist(err);
       });
